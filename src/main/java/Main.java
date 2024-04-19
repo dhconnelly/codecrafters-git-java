@@ -3,30 +3,36 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 public class Main {
-  public static void main(String[] args){
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    System.out.println("Logs from your program will appear here!");
+  private static void die(Exception e) {
+    e.printStackTrace(System.err);
+    System.exit(1);
+  }
 
-    // Uncomment this block to pass the first stage
-    //
-    // final String command = args[0];
-    //
-    // switch (command) {
-    //   case "init" -> {
-    //     final File root = new File(".git");
-    //     new File(root, "objects").mkdirs();
-    //     new File(root, "refs").mkdirs();
-    //     final File head = new File(root, "HEAD");
-    //
-    //     try {
-    //       head.createNewFile();
-    //       Files.write(head.toPath(), "ref: refs/heads/main\n".getBytes());
-    //       System.out.println("Initialized git directory");
-    //     } catch (IOException e) {
-    //       throw new RuntimeException(e);
-    //     }
-    //   }
-    //   default -> System.out.println("Unknown command: " + command);
-    // }
+  private static void init() {
+    try {
+      // .git/
+      final File root = new File(".git");
+      // .git/objects/
+      new File(root, "objects").mkdirs();
+      // .git/refs/
+      new File(root, "refs").mkdirs();
+      // .git/HEAD
+      final File head = new File(root, "HEAD");
+      head.createNewFile();
+      Files.write(head.toPath(), "ref: refs/heads/main\n".getBytes());
+    } catch (IOException e) {
+      die(e);
+    }
+  }
+
+  public static void main(String[] args) {
+    if (args.length == 0) {
+      die(new IllegalArgumentException("usage: git <command>"));
+    }
+    final String command = args[0];
+    switch (command) {
+      case "init" -> init();
+      default -> System.out.println("Unknown command: " + command);
+    }
   }
 }
