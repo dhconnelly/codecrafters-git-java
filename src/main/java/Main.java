@@ -49,7 +49,7 @@ public class Main {
         chan.read(ByteBuffer.wrap(content));
         // TODO: handle non-UTF8 content
         var decoded = new String(content, StandardCharsets.UTF_8);
-        System.out.println(decoded);
+        System.out.print(decoded);
       }
     } catch (IOException e) {
       die(e);
