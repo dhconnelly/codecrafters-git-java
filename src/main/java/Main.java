@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 public class Main {
   private static void die(Exception e) {
@@ -45,12 +46,31 @@ public class Main {
       var blob = Blob.parse(
           Files.newByteChannel(Path.of(".git", "objects", dir, path)));
       try (var chan = blob.content()) {
-        var content = new byte[blob.size()];
+        var content = new byte[(int) blob.size()];
         chan.read(ByteBuffer.wrap(content));
         // TODO: handle non-UTF8 content
         var decoded = new String(content, StandardCharsets.UTF_8);
         System.out.print(decoded);
       }
+    } catch (IOException e) {
+      die(e);
+    }
+  }
+
+  private static void hashObject(List<String> opts) {
+    boolean write = false;
+    var path = Optional.<String>empty();
+    for (var opt : opts) {
+      if (opt.equals("-w")) write = true;
+      else path = Optional.of(opt);
+    }
+    if (path.isEmpty()) {
+      throw new IllegalArgumentException("usage: git hash-object [-w] <path>");
+    }
+    try {
+      var file = Files.newByteChannel(Path.of(path.get()));
+      var blob = new Blob(file.size(), file);
+      System.out.println(blob.hash());
     } catch (IOException e) {
       die(e);
     }
@@ -66,6 +86,7 @@ public class Main {
     switch (command) {
       case "init" -> init();
       case "cat-file" -> catFile(opts);
+      case "hash-object" -> hashObject(opts);
       default -> System.out.println("Unknown command: " + command);
     }
   }
