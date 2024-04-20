@@ -80,6 +80,7 @@ public class Main {
       if (write) try (var out = Files.newByteChannel(
           outPath,
           StandardOpenOption.WRITE,
+          StandardOpenOption.CREATE,
           StandardOpenOption.TRUNCATE_EXISTING)) {
         System.out.printf("writing %d bytes to %s\n", in.size(), outPath);
         // TODO: this is a mess, back blob by a file?
