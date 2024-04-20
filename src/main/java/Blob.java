@@ -4,9 +4,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 
 public record Blob(long size, ReadableByteChannel content) {
@@ -61,7 +63,16 @@ public record Blob(long size, ReadableByteChannel content) {
     return encoded;
   }
 
-  String hash() throws IOException {
+  public void write(WritableByteChannel out) throws IOException {
+    var stream = Channels.newOutputStream(out);
+    var deflater = new DeflaterOutputStream(stream);
+    try (var chan = Channels.newChannel(deflater)) {
+      var written = chan.write(encodeUncompressed());
+      System.out.printf("wrote %d bytes\n", written);
+    }
+  }
+
+  public String hash() throws IOException {
     try {
       MessageDigest digest = MessageDigest.getInstance(SHA_1);
       // TODO: update in chunks to avoid OOM

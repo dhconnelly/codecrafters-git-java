@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +32,12 @@ public class Main {
     }
   }
 
+  private static Path pathFor(String sha) {
+    var dir = sha.substring(0, 2);
+    var path = sha.substring(2);
+    return Path.of(".git", "objects", dir, path);
+  }
+
   private static void catFile(List<String> opts) {
     if (opts.size() != 2 || !opts.getFirst().equals("-p")) {
       throw new IllegalArgumentException("usage: git cat-file -p <sha>");
@@ -39,12 +46,9 @@ public class Main {
     if (sha.length() != 40) {
       throw new IllegalArgumentException("bad sha: expected 40-byte sha-1");
     }
-    var dir = sha.substring(0, 2);
-    var path = sha.substring(2);
     try {
       // TODO: support arbitrary roots
-      var blob = Blob.parse(
-          Files.newByteChannel(Path.of(".git", "objects", dir, path)));
+      var blob = Blob.parse(Files.newByteChannel(pathFor(sha)));
       try (var chan = blob.content()) {
         var content = new byte[(int) blob.size()];
         chan.read(ByteBuffer.wrap(content));
@@ -67,10 +71,21 @@ public class Main {
     if (path.isEmpty()) {
       throw new IllegalArgumentException("usage: git hash-object [-w] <path>");
     }
-    try {
-      var file = Files.newByteChannel(Path.of(path.get()));
-      var blob = new Blob(file.size(), file);
-      System.out.println(blob.hash());
+    try (var in = Files.newByteChannel(Path.of(path.get()))) {
+      var blob = new Blob(in.size(), in);
+      var sha = blob.hash();
+      System.out.println(sha);
+      var outPath = pathFor(sha);
+      Files.createDirectories(outPath.getParent());
+      if (write) try (var out = Files.newByteChannel(
+          outPath,
+          StandardOpenOption.WRITE,
+          StandardOpenOption.TRUNCATE_EXISTING)) {
+        System.out.printf("writing %d bytes to %s\n", in.size(), outPath);
+        // TODO: this is a mess, back blob by a file?
+        in.position(0);
+        new Blob(in.size(), in).write(out);
+      }
     } catch (IOException e) {
       die(e);
     }
