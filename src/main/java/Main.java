@@ -82,7 +82,6 @@ public class Main {
           StandardOpenOption.WRITE,
           StandardOpenOption.CREATE,
           StandardOpenOption.TRUNCATE_EXISTING)) {
-        System.out.printf("writing %d bytes to %s\n", in.size(), outPath);
         // TODO: this is a mess, back blob by a file?
         in.position(0);
         new Blob(in.size(), in).write(out);

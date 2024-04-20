@@ -68,7 +68,6 @@ public record Blob(long size, ReadableByteChannel content) {
     var deflater = new DeflaterOutputStream(stream);
     try (var chan = Channels.newChannel(deflater)) {
       var written = chan.write(encodeUncompressed());
-      System.out.printf("wrote %d bytes\n", written);
     }
   }
 
