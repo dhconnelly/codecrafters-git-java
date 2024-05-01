@@ -38,16 +38,11 @@ public class Main {
             throw new IllegalArgumentException("bad sha: expected 40-byte sha-1");
         }
         try {
-            // TODO: support arbitrary roots
-            var blob = Blob.parse(Files.newByteChannel(pathFor(sha)));
-            try (var chan = blob.content()) {
-                var content = new byte[(int) blob.size()];
-                chan.read(ByteBuffer.wrap(content));
-                // TODO: handle non-UTF8 content
-                var decoded = new String(content, StandardCharsets.UTF_8);
-                System.out.print(decoded);
+            var git = FsObjectDatabase.init(Path.of("."));
+            try (var content = git.catFile(sha)) {
+                content.transferTo(System.out);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             die(e);
         }
     }
