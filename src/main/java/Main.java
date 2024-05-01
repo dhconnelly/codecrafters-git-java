@@ -17,16 +17,7 @@ public class Main {
 
   private static void init() {
     try {
-      // .git/
-      final File root = new File(".git");
-      // .git/objects/
-      new File(root, "objects").mkdirs();
-      // .git/refs/
-      new File(root, "refs").mkdirs();
-      // .git/HEAD
-      final File head = new File(root, "HEAD");
-      head.createNewFile();
-      Files.write(head.toPath(), "ref: refs/heads/main\n".getBytes());
+      FsObjectDatabase.create(Path.of("."));
     } catch (IOException e) {
       die(e);
     }
@@ -65,8 +56,10 @@ public class Main {
     boolean write = false;
     var path = Optional.<String>empty();
     for (var opt : opts) {
-      if (opt.equals("-w")) write = true;
-      else path = Optional.of(opt);
+      if (opt.equals("-w"))
+        write = true;
+      else
+        path = Optional.of(opt);
     }
     if (path.isEmpty()) {
       throw new IllegalArgumentException("usage: git hash-object [-w] <path>");
@@ -77,15 +70,16 @@ public class Main {
       System.out.println(sha);
       var outPath = pathFor(sha);
       Files.createDirectories(outPath.getParent());
-      if (write) try (var out = Files.newByteChannel(
-          outPath,
-          StandardOpenOption.WRITE,
-          StandardOpenOption.CREATE,
-          StandardOpenOption.TRUNCATE_EXISTING)) {
-        // TODO: this is a mess, back blob by a file?
-        in.position(0);
-        new Blob(in.size(), in).write(out);
-      }
+      if (write)
+        try (var out = Files.newByteChannel(
+            outPath,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING)) {
+          // TODO: this is a mess, back blob by a file?
+          in.position(0);
+          new Blob(in.size(), in).write(out);
+        }
     } catch (IOException e) {
       die(e);
     }
