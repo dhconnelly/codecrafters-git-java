@@ -8,7 +8,6 @@ import java.nio.file.StandardCopyOption;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.zip.DeflaterOutputStream;
@@ -21,12 +20,6 @@ public class FsObjectDatabase implements ObjectDatabase {
         this.root = root;
     }
 
-    public Path pathFor(String sha) {
-        var dir = sha.substring(0, 2);
-        var path = sha.substring(2);
-        return root.resolve(".git/objects").resolve(dir).resolve(path);
-    }
-
     public static FsObjectDatabase init(Path root) throws GitException, IOException {
         Files.createDirectories(root.resolve(".git"));
         Files.createDirectories(root.resolve(".git/objects"));
@@ -35,8 +28,14 @@ public class FsObjectDatabase implements ObjectDatabase {
         return new FsObjectDatabase(root);
     }
 
+    public Path pathFor(String sha) {
+        var dir = sha.substring(0, 2);
+        var path = sha.substring(2);
+        return root.resolve(".git/objects").resolve(dir).resolve(path);
+    }
+
     @Override
-    public InputStream catFile(String sha) throws GitException, IOException {
+    public InputStream readObject(String sha) throws GitException, IOException {
         var deflated = Files.newInputStream(pathFor(sha));
         var inflated = new InflaterInputStream(deflated);
         var type = eatString(inflated, (byte) ' ');
@@ -49,8 +48,6 @@ public class FsObjectDatabase implements ObjectDatabase {
         };
     }
 
-    private static final String SHA_1 = "SHA-1";
-
     private static String hex(byte[] bytes) {
         var hash = new StringBuilder();
         for (byte b : bytes)
@@ -58,39 +55,40 @@ public class FsObjectDatabase implements ObjectDatabase {
         return hash.toString();
     }
 
-    @Override
-    public String hashObject(InputStream s, long size, boolean write) throws IOException {
+    private static final String SHA_1 = "SHA-1";
+
+    private String hashObject(OutputStream out, InputStream in, long size) throws IOException {
         MessageDigest digest;
         try {
-            digest = MessageDigest.getInstance(SHA_1);
+            digest = MessageDigest.getInstance("SHA-1");
         } catch (NoSuchAlgorithmException e) {
             throw new AssertionError("can't find algorithm: %s".formatted(SHA_1));
         }
 
-        Optional<Path> path;
-        OutputStream out;
-        if (write) {
-            path = Optional.of(Files.createTempFile("git", "obj"));
-            out = new DeflaterOutputStream(Files.newOutputStream(path.get()));
-        } else {
-            path = Optional.empty();
-            out = OutputStream.nullOutputStream();
-        }
-
-        try (var digester = new DigestOutputStream(out, digest); s) {
-            digester.write("blob %d".formatted(size).getBytes(StandardCharsets.UTF_8));
-            digester.write((byte) 0);
-            s.transferTo(digester);
-        }
+        var digester = new DigestOutputStream(out, digest);
+        digester.write("blob %d".formatted(size).getBytes(StandardCharsets.UTF_8));
+        digester.write((byte) 0);
+        in.transferTo(digester);
 
         var hash = hex(digest.digest());
-        if (write) {
+        return hash;
+    }
+
+    @Override
+    public String hashObject(InputStream s, long size) throws IOException {
+        return hashObject(OutputStream.nullOutputStream(), s, size);
+    }
+
+    @Override
+    public String writeObject(InputStream s, long size) throws IOException {
+        Path temp = Files.createTempFile("git", "obj");
+        try (var out = new DeflaterOutputStream(Files.newOutputStream(temp))) {
+            String hash = hashObject(out, s, size);
             Path target = pathFor(hash);
             Files.createDirectories(target.getParent());
-            Files.move(path.get(), target, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            return hash;
         }
-
-        return hash;
     }
 
     private static int eatInt(InputStream is, byte until) throws GitException, IOException {

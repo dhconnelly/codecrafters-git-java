@@ -33,7 +33,7 @@ public class Main {
         }
         try {
             var git = FsObjectDatabase.init(Path.of("."));
-            try (var content = git.catFile(sha)) {
+            try (var content = git.readObject(sha)) {
                 content.transferTo(System.out);
             }
         } catch (Exception e) {
@@ -55,7 +55,9 @@ public class Main {
         }
         try (var s = Files.newInputStream(path.get())) {
             var git = FsObjectDatabase.init(Path.of("."));
-            String hash = git.hashObject(s, Files.size(path.get()), write);
+            String hash = write
+                    ? git.writeObject(s, Files.size(path.get()))
+                    : git.hashObject(s, Files.size(path.get()));
             System.out.println(hash);
         } catch (Exception e) {
             die(e);

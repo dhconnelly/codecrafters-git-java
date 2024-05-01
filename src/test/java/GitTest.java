@@ -50,7 +50,7 @@ public class GitTest {
         var git = FsObjectDatabase.init(Files.createTempDirectory("hash"));
 
         // WHEN
-        String hash = git.hashObject(new ByteArrayInputStream(CONTENT), CONTENT.length, false);
+        String hash = git.hashObject(new ByteArrayInputStream(CONTENT), CONTENT.length);
 
         // THEN
         assertEquals(CONTENT_HASH, hash);
@@ -62,11 +62,11 @@ public class GitTest {
         var git = FsObjectDatabase.init(Files.createTempDirectory("write"));
 
         // WHEN
-        String hash = git.hashObject(new ByteArrayInputStream(CONTENT), CONTENT.length, true);
+        String hash = git.writeObject(new ByteArrayInputStream(CONTENT), CONTENT.length);
 
         // THEN
         assertEquals(CONTENT_HASH, hash);
-        byte[] content = git.catFile(CONTENT_HASH).readAllBytes();
+        byte[] content = git.readObject(CONTENT_HASH).readAllBytes();
         assertArrayEquals(CONTENT, content);
     }
 
@@ -79,7 +79,7 @@ public class GitTest {
         Files.write(path, CONTENT_BLOB, StandardOpenOption.CREATE_NEW);
 
         // WHEN
-        byte[] content = git.catFile(CONTENT_HASH).readAllBytes();
+        byte[] content = git.readObject(CONTENT_HASH).readAllBytes();
 
         // THEN
         assertArrayEquals(CONTENT, content);

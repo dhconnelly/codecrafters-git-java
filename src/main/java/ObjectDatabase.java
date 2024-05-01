@@ -2,28 +2,34 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public interface ObjectDatabase {
-    enum ObjectType {
-        Blob, Tree, Commit
-    }
-
     /**
-     * Returns a channel to the given object's content.
+     * Returns a stream of the object's content.
      * 
-     * @param sha The sha-1 hash of the object to print.
-     * @return A channel to the object's content.
+     * @param hash The hash of the object to print.
+     * @return A stream of the object's content.
      * @throws GitException If the object cannot be found.
      * @throws IOException  If an error is encountered when reading the object.
      */
-    InputStream catFile(String sha) throws GitException, IOException;
+    InputStream readObject(String hash) throws GitException, IOException;
 
     /**
-     * Returns a sha-1 hash for a blob containing the given content.
+     * Returns a hash for a blob containing the given content.
      * 
-     * @param f     The content of the blob.
-     * @param size  The size of the content.
-     * @param write Whether the object should be written to this object database.
+     * @param s    The content of the blob.
+     * @param size The size of the content.
      * @return The hash of the blob.
      * @throws IOException If encountering an error while reading the content.
      */
-    String hashObject(InputStream s, long size, boolean write) throws IOException;
+    String hashObject(InputStream s, long size) throws IOException;
+
+    /**
+     * Writes the given content to the database as a blob and returns its hash.
+     * 
+     * @param s    The content of the blob.
+     * @param size The size of the content.
+     * @return The hash of the blbo.
+     * @throws IOException If encountering an error while reading the content or
+     *                     writing the blob.
+     */
+    String writeObject(InputStream s, long size) throws IOException;
 }
