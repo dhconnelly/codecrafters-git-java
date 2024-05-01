@@ -24,7 +24,10 @@ public class FsObjectDatabase implements ObjectDatabase {
         Files.createDirectories(root.resolve(".git"));
         Files.createDirectories(root.resolve(".git/objects"));
         Files.createDirectories(root.resolve(".git/refs"));
-        Files.writeString(root.resolve(".git/HEAD"), "ref: refs/heads/main\n", StandardCharsets.UTF_8);
+        Path head = root.resolve(".git/HEAD");
+        if (!Files.exists(head)) {
+            Files.writeString(head, "ref: refs/heads/main\n", StandardCharsets.UTF_8);
+        }
         return new FsObjectDatabase(root);
     }
 
