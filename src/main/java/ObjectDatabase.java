@@ -20,9 +20,10 @@ public interface ObjectDatabase {
      * Returns a sha-1 hash for a blob containing the given content.
      * 
      * @param f     The content of the blob.
+     * @param size  The size of the content.
      * @param write Whether the object should be written to this object database.
      * @return The hash of the blob.
      * @throws IOException If encountering an error while reading the content.
      */
-    String hashObject(InputStream s, boolean write) throws IOException;
+    String hashObject(InputStream s, long size, boolean write) throws IOException;
 }

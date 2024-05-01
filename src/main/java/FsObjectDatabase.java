@@ -6,6 +6,9 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -47,10 +50,26 @@ public class FsObjectDatabase implements ObjectDatabase {
         };
     }
 
+    private static final String SHA_1 = "SHA-1";
+
     @Override
-    public String hashObject(InputStream s, boolean write) throws IOException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'hashObject'");
+    public String hashObject(InputStream s, long size, boolean write) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance(SHA_1);
+        } catch (NoSuchAlgorithmException e) {
+            throw new AssertionError("can't find algorithm: %s".formatted(SHA_1));
+        }
+        byte[] header = "blob %d".formatted(size).getBytes(StandardCharsets.UTF_8);
+        digest.update(header);
+        digest.update((byte) 0);
+        var digester = new DigestOutputStream(OutputStream.nullOutputStream(), digest);
+        s.transferTo(digester);
+        var hash = new StringBuilder();
+        for (byte b : digest.digest()) {
+            hash.append("%02x".formatted(b));
+        }
+        return hash.toString();
     }
 
     private static int eatInt(InputStream is, byte until) throws GitException, IOException {
