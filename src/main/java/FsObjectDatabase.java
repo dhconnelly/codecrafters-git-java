@@ -1,18 +1,17 @@
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.function.BiConsumer;
+import java.util.Optional;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 
 public class FsObjectDatabase implements ObjectDatabase {
@@ -52,6 +51,13 @@ public class FsObjectDatabase implements ObjectDatabase {
 
     private static final String SHA_1 = "SHA-1";
 
+    private static String hex(byte[] bytes) {
+        var hash = new StringBuilder();
+        for (byte b : bytes)
+            hash.append("%02x".formatted(b));
+        return hash.toString();
+    }
+
     @Override
     public String hashObject(InputStream s, long size, boolean write) throws IOException {
         MessageDigest digest;
@@ -60,16 +66,31 @@ public class FsObjectDatabase implements ObjectDatabase {
         } catch (NoSuchAlgorithmException e) {
             throw new AssertionError("can't find algorithm: %s".formatted(SHA_1));
         }
-        byte[] header = "blob %d".formatted(size).getBytes(StandardCharsets.UTF_8);
-        digest.update(header);
-        digest.update((byte) 0);
-        var digester = new DigestOutputStream(OutputStream.nullOutputStream(), digest);
-        s.transferTo(digester);
-        var hash = new StringBuilder();
-        for (byte b : digest.digest()) {
-            hash.append("%02x".formatted(b));
+
+        Optional<Path> path;
+        OutputStream out;
+        if (write) {
+            path = Optional.of(Files.createTempFile("git", "obj"));
+            out = new DeflaterOutputStream(Files.newOutputStream(path.get()));
+        } else {
+            path = Optional.empty();
+            out = OutputStream.nullOutputStream();
         }
-        return hash.toString();
+
+        try (var digester = new DigestOutputStream(out, digest); s) {
+            digester.write("blob %d".formatted(size).getBytes(StandardCharsets.UTF_8));
+            digester.write((byte) 0);
+            s.transferTo(digester);
+        }
+
+        var hash = hex(digest.digest());
+        if (write) {
+            Path target = pathFor(hash);
+            Files.createDirectories(target.getParent());
+            Files.move(path.get(), target, StandardCopyOption.REPLACE_EXISTING);
+        }
+
+        return hash;
     }
 
     private static int eatInt(InputStream is, byte until) throws GitException, IOException {

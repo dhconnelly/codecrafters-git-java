@@ -1,5 +1,3 @@
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,9 +6,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+
+import org.junit.jupiter.api.Test;
 
 public class GitTest {
     @Test
@@ -48,7 +47,7 @@ public class GitTest {
     @Test
     public void testHash() throws IOException, GitException {
         // GIVEN
-        var git = FsObjectDatabase.init(Files.createTempDirectory("cat"));
+        var git = FsObjectDatabase.init(Files.createTempDirectory("hash"));
 
         // WHEN
         String hash = git.hashObject(new ByteArrayInputStream(CONTENT), CONTENT.length, false);
@@ -59,7 +58,16 @@ public class GitTest {
 
     @Test
     public void testHashWrite() throws IOException, GitException {
+        // GIVEN
+        var git = FsObjectDatabase.init(Files.createTempDirectory("write"));
 
+        // WHEN
+        String hash = git.hashObject(new ByteArrayInputStream(CONTENT), CONTENT.length, true);
+
+        // THEN
+        assertEquals(CONTENT_HASH, hash);
+        byte[] content = git.catFile(CONTENT_HASH).readAllBytes();
+        assertArrayEquals(CONTENT, content);
     }
 
     @Test
