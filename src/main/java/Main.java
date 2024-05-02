@@ -65,13 +65,13 @@ public class Main {
     }
 
     private static void lsTree(List<String> opts) {
-        if (opts.size() > 1) {
-            die("usage: git ls-tree <hash>");
+        if (opts.size() != 2) {
+            die("usage: git ls-tree --name-only <hash>");
         }
         try {
             var git = FsObjectDatabase.init(Path.of("."));
-            for (var obj : git.listTree(opts.get(0))) {
-                System.out.printf("%06d %s %s\t%s\n", obj.mode(), obj.type(), obj.hash(), obj.name());
+            for (var obj : git.listTree(opts.get(1))) {
+                System.out.println(obj.name());
             }
         } catch (Exception e) {
             die(e);
