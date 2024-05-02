@@ -33,7 +33,7 @@ public class Main {
         }
         try {
             var git = FsObjectDatabase.init(Path.of("."));
-            try (var content = git.readObject(sha)) {
+            try (var content = git.readBlob(sha)) {
                 content.transferTo(System.out);
             }
         } catch (Exception e) {
@@ -64,6 +64,20 @@ public class Main {
         }
     }
 
+    private static void lsTree(List<String> opts) {
+        if (opts.size() > 1) {
+            die("usage: git ls-tree <hash>");
+        }
+        try {
+            var git = FsObjectDatabase.init(Path.of("."));
+            for (var obj : git.listTree(opts.get(0))) {
+                System.out.printf("%06d %s %s\t%s\n", obj.mode(), obj.type(), obj.hash(), obj.name());
+            }
+        } catch (Exception e) {
+            die(e);
+        }
+    }
+
     public static void main(String[] args) {
         if (args.length == 0) {
             die("usage: git <command>");
@@ -75,6 +89,7 @@ public class Main {
             case "init" -> init();
             case "cat-file" -> catFile(opts);
             case "hash-object" -> hashObject(opts);
+            case "ls-tree" -> lsTree(opts);
             default -> System.out.println("Unknown command: " + command);
         }
     }

@@ -66,7 +66,7 @@ public class GitTest {
 
         // THEN
         assertEquals(CONTENT_HASH, hash);
-        byte[] content = git.readObject(CONTENT_HASH).readAllBytes();
+        byte[] content = git.readBlob(CONTENT_HASH).readAllBytes();
         assertArrayEquals(CONTENT, content);
     }
 
@@ -79,9 +79,17 @@ public class GitTest {
         Files.write(path, CONTENT_BLOB, StandardOpenOption.CREATE_NEW);
 
         // WHEN
-        byte[] content = git.readObject(CONTENT_HASH).readAllBytes();
+        byte[] content = git.readBlob(CONTENT_HASH).readAllBytes();
 
         // THEN
         assertArrayEquals(CONTENT, content);
+    }
+
+    @Test
+    public void testListTree() {
+    }
+
+    @Test
+    public void testGetType() {
     }
 }

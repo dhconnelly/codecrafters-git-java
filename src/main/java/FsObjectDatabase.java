@@ -1,3 +1,4 @@
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -8,8 +9,13 @@ import java.nio.file.StandardCopyOption;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 
@@ -38,17 +44,51 @@ public class FsObjectDatabase implements ObjectDatabase {
     }
 
     @Override
-    public InputStream readObject(String sha) throws GitException, IOException {
-        var deflated = Files.newInputStream(pathFor(sha));
+    public ObjectType getType(String hash) throws IOException, GitException {
+        var deflated = Files.newInputStream(pathFor(hash));
         var inflated = new InflaterInputStream(deflated);
-        var type = eatString(inflated, (byte) ' ');
-        return switch (type) {
-            case "blob" -> {
-                eatInt(inflated, (byte) 0); // size
-                yield inflated;
+        String type = eatString(inflated, (byte) ' ').t.toString();
+        return ObjectType.parse(type);
+    }
+
+    private record ObjectInputStream(ObjectType type, int size, InputStream stream) {
+        InputStream as(ObjectType want) throws GitException {
+            if (type != want) {
+                throw new GitException("invalid object type: want %s, got %s".formatted(want, type));
             }
-            default -> throw new UnsupportedOperationException("TODO");
-        };
+            return stream;
+        }
+    }
+
+    private ObjectInputStream readObject(String hash) throws IOException, GitException {
+        var deflated = Files.newInputStream(pathFor(hash));
+        var inflated = new InflaterInputStream(deflated);
+        String type = eatString(inflated, (byte) ' ').t.toString();
+        int size = eatInt(inflated, (byte) 0).t;
+        return new ObjectInputStream(ObjectType.parse(type), size, inflated);
+    }
+
+    @Override
+    public List<TreeObject> listTree(String hash) throws GitException, IOException {
+        var obj = readObject(hash);
+        InputStream stream = obj.as(ObjectType.Tree);
+        var elems = new ArrayList<TreeObject>();
+        for (int read = 0; read < obj.size;) {
+            var mode = eatInt(stream, (byte) ' ');
+            read += mode.size;
+            var name = eatString(stream, (byte) 0);
+            read += name.size;
+            var objectHash = hex(stream.readNBytes(20));
+            var objectType = getType(objectHash);
+            read += 20;
+            elems.add(new TreeObject(name.t.toString(), objectType, mode.t, objectHash));
+        }
+        return elems;
+    }
+
+    @Override
+    public InputStream readBlob(String sha) throws GitException, IOException {
+        return readObject(sha).as(ObjectType.Blob);
     }
 
     private static String hex(byte[] bytes) {
@@ -94,19 +134,29 @@ public class FsObjectDatabase implements ObjectDatabase {
         }
     }
 
-    private static int eatInt(InputStream is, byte until) throws GitException, IOException {
+    private static Sized<Integer> eatInt(InputStream is, byte until) throws GitException, IOException {
         return eat(is, until, 0, (result, b) -> 10 * result + (b - '0'), b -> (b >= '0' && b <= '9'));
     }
 
-    private static String eatString(InputStream is, byte until) throws GitException, IOException {
-        return eat(is, until, new StringBuilder(), (s, b) -> s.append((char) b.byteValue()), b -> b <= 127).toString();
+    private static Sized<StringBuilder> eatString(InputStream is, byte until) throws GitException, IOException {
+        return eat(is, until, new StringBuilder(), (s, b) -> s.append((char) b.byteValue()), b -> b <= 127);
     }
 
-    private static <T> T eat(InputStream is, byte until, T initial, BiFunction<T, Byte, T> f, Predicate<Byte> valid)
+    private record Sized<T>(T t, int size) {
+    }
+
+    private static <T> Sized<T> eat(
+            InputStream is, byte until,
+            T initial, BiFunction<T, Byte, T> f,
+            Predicate<Byte> valid)
             throws IOException, GitException {
-        int read;
+        int read, n = 0;
         T acc = initial;
-        while ((read = is.read()) >= 0 && read != until) {
+        while ((read = is.read()) >= 0) {
+            n++;
+            if (read == until) {
+                break;
+            }
             if (!valid.test((byte) read)) {
                 throw new GitException("invalid git object: got %d".formatted(read));
             }
@@ -115,6 +165,7 @@ public class FsObjectDatabase implements ObjectDatabase {
         if (read != until) {
             throw new GitException("invalid object: unexpected eof");
         }
-        return acc;
+        return new Sized<T>(acc, n);
     }
+
 }

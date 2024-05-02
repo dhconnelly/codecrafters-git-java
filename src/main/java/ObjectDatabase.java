@@ -1,7 +1,17 @@
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 public interface ObjectDatabase {
+    /**
+     * Returns the type of the object with the given hash.
+     * 
+     * @param hash The hash of the object.
+     * @return The type of the object.
+     * @throws IOException If an error is encountered when reading the object.
+     */
+    ObjectType getType(String hash) throws GitException, IOException;
+
     /**
      * Returns a stream of the object's content.
      * 
@@ -10,7 +20,7 @@ public interface ObjectDatabase {
      * @throws GitException If the object cannot be found.
      * @throws IOException  If an error is encountered when reading the object.
      */
-    InputStream readObject(String hash) throws GitException, IOException;
+    InputStream readBlob(String hash) throws GitException, IOException;
 
     /**
      * Returns a hash for a blob containing the given content.
@@ -32,4 +42,6 @@ public interface ObjectDatabase {
      *                     writing the blob.
      */
     String writeObject(InputStream s, long size) throws IOException;
+
+    List<TreeObject> listTree(String hash) throws GitException, IOException;
 }
