@@ -199,7 +199,7 @@ public class FsObjectDatabase implements ObjectDatabase {
             }
             treeSize += Long.toString(objects.getLast().mode()).length();
             treeSize += 1; // space
-            treeSize += objects.getLast().name().length();
+            treeSize += objects.getLast().name().length(); // name
             treeSize += 1; // nul
             treeSize += 20; // sha
         }

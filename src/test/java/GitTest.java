@@ -1,10 +1,10 @@
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -30,7 +30,7 @@ public class GitTest {
     // git init
     // echo "hello, world" | git hash-object --stdin -w
     // xxd -i .git/objects/4b/5fa63702dd96796042e92787f464e28f09f17d
-    private static final byte[] CONTENT = "hello, world\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] CONTENT = "hello, world\n".getBytes(UTF_8);
     private static final byte[] CONTENT_HASH_BINARY = asBytes(new int[] {
             0x4b, 0x5f, 0xa6, 0x37, 0x02, 0xdd, 0x96, 0x79, 0x60, 0x42, 0xe9, 0x27,
             0x87, 0xf4, 0x64, 0xe2, 0x8f, 0x09, 0xf1, 0x7d });
@@ -42,6 +42,7 @@ public class GitTest {
 
     // echo "hello, cruel world" | git hash-object --stdin -w
     // xxd -i .git/objects/bb/d698f6f2eb4009d9950c3a0317c536b504c842
+    private static final byte[] CONTENT2 = "hello, cruel world\n".getBytes(UTF_8);
     private static final byte[] CONTENT2_HASH_BINARY = asBytes(new int[] {
             0xbb, 0xd6, 0x98, 0xf6, 0xf2, 0xeb, 0x40, 0x09, 0xd9, 0x95, 0x0c, 0x3a,
             0x03, 0x17, 0xc5, 0x36, 0xb5, 0x04, 0xc8, 0x42 });
@@ -154,7 +155,7 @@ public class GitTest {
     @Test
     public void testListTree() throws GitException, IOException {
         // GIVEN
-        var git = FsObjectDatabase.init(Files.createTempDirectory("type"));
+        var git = FsObjectDatabase.init(Files.createTempDirectory("list"));
         createFile(git.pathFor(CONTENT_HASH_BINARY), CONTENT_DATA);
         createFile(git.pathFor(CONTENT2_HASH_BINARY), CONTENT2_DATA);
         createFile(git.pathFor(TREE_HASH_BINARY), TREE_DATA);
@@ -170,5 +171,20 @@ public class GitTest {
             assertEquals(elems.get(i).mode(), TREE_FILES.get(i).mode());
             assertArrayEquals(elems.get(i).hash(), TREE_FILES.get(i).hash());
         }
+    }
+
+    @Test
+    public void testWriteTree() throws IOException, GitException {
+        // GIVEN
+        Path root = Files.createTempDirectory("write");
+        createFile(root.resolve(TREE_FILES.get(0).name()), CONTENT);
+        createFile(root.resolve(TREE_FILES.get(1).name()), CONTENT2);
+
+        // WHEN
+        var git = FsObjectDatabase.init(root);
+        byte[] hash = git.writeTree();
+
+        // THEN
+        assertArrayEquals(TREE_HASH_BINARY, hash);
     }
 }

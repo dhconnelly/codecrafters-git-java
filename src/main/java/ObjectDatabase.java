@@ -53,5 +53,13 @@ public interface ObjectDatabase {
      */
     List<TreeObject> listTree(byte[] hash) throws GitException, IOException;
 
+    /**
+     * Writes a tree object for the entire object database, recursively writing
+     * intermediate trees.
+     * 
+     * @return A hash representing the new tree object.
+     * @throws GitException If any invalid Git objects are found.
+     * @throws IOException  If an error is encountered while writing the tree.
+     */
     byte[] writeTree() throws GitException, IOException;
 }
