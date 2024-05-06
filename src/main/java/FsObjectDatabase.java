@@ -74,8 +74,8 @@ public class FsObjectDatabase implements ObjectDatabase {
             read += mode.size;
             var name = eatString(stream, (byte) 0);
             read += name.size;
-            var objectHash = hex(stream.readNBytes(20));
-            var objectType = getType(objectHash);
+            var objectHash = stream.readNBytes(20);
+            var objectType = getType(hex(objectHash));
             read += 20;
             elems.add(new TreeObject(name.t.toString(), objectType, mode.t, objectHash));
         }
@@ -164,4 +164,19 @@ public class FsObjectDatabase implements ObjectDatabase {
         return new Sized<T>(acc, n);
     }
 
+    private String writeTree(Path base) throws GitException, IOException {
+        // we need to recursively create all subtrees, so we use |list| instead
+        // of |walk| here.
+        Files.list(base).forEach(path -> {
+            if (Files.isDirectory(path)) {
+            }
+        });
+        return null;
+    }
+
+    @Override
+    public String writeTree() throws GitException, IOException {
+        writeTree(root);
+        return null;
+    }
 }

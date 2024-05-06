@@ -52,4 +52,6 @@ public interface ObjectDatabase {
      * @throws IOException  If encountering an error while reading any of the files.
      */
     List<TreeObject> listTree(String hash) throws GitException, IOException;
+
+    String writeTree() throws GitException, IOException;
 }
