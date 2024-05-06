@@ -1,6 +1,7 @@
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +24,17 @@ public class Main {
         }
     }
 
+    private static String hex(byte[] bytes) {
+        var hash = new StringBuilder();
+        for (byte b : bytes)
+            hash.append("%02x".formatted(b));
+        return hash.toString();
+    }
+
+    private static byte[] fromHex(String hash) {
+        return HexFormat.of().parseHex(hash);
+    }
+
     private static void catFile(List<String> opts) {
         if (opts.size() != 2 || !opts.getFirst().equals("-p")) {
             die("usage: git cat-file -p <sha>");
@@ -33,7 +45,7 @@ public class Main {
         }
         try {
             var git = FsObjectDatabase.init(Path.of("."));
-            try (var content = git.readBlob(sha)) {
+            try (var content = git.readBlob(fromHex(sha))) {
                 content.transferTo(System.out);
             }
         } catch (Exception e) {
@@ -56,8 +68,8 @@ public class Main {
         try (var s = Files.newInputStream(path.get())) {
             var git = FsObjectDatabase.init(Path.of("."));
             String hash = write
-                    ? git.writeObject(s, Files.size(path.get()))
-                    : git.hashObject(s, Files.size(path.get()));
+                    ? hex(git.writeBlob(s, Files.size(path.get())))
+                    : hex(git.hashBlob(s, Files.size(path.get())));
             System.out.println(hash);
         } catch (Exception e) {
             die(e);
@@ -70,9 +82,21 @@ public class Main {
         }
         try {
             var git = FsObjectDatabase.init(Path.of("."));
-            for (var obj : git.listTree(opts.get(1))) {
+            for (var obj : git.listTree(fromHex(opts.get(1)))) {
                 System.out.println(obj.name());
             }
+        } catch (Exception e) {
+            die(e);
+        }
+    }
+
+    private static void writeTree(List<String> opts) {
+        if (!opts.isEmpty()) {
+            die("usage: git write-tree");
+        }
+        try {
+            var git = FsObjectDatabase.init(Path.of("."));
+            System.out.println(hex(git.writeTree()));
         } catch (Exception e) {
             die(e);
         }
@@ -90,6 +114,7 @@ public class Main {
             case "cat-file" -> catFile(opts);
             case "hash-object" -> hashObject(opts);
             case "ls-tree" -> lsTree(opts);
+            case "write-tree" -> writeTree(opts);
             default -> System.out.println("Unknown command: " + command);
         }
     }

@@ -10,7 +10,7 @@ public interface ObjectDatabase {
      * @return The type of the object.
      * @throws IOException If an error is encountered when reading the object.
      */
-    ObjectType getType(String hash) throws GitException, IOException;
+    ObjectType getType(byte[] hash) throws GitException, IOException;
 
     /**
      * Returns a stream of the object's content.
@@ -20,7 +20,7 @@ public interface ObjectDatabase {
      * @throws GitException If the object cannot be found.
      * @throws IOException  If an error is encountered when reading the object.
      */
-    InputStream readBlob(String hash) throws GitException, IOException;
+    InputStream readBlob(byte[] hash) throws GitException, IOException;
 
     /**
      * Returns a hash for a blob containing the given content.
@@ -30,7 +30,7 @@ public interface ObjectDatabase {
      * @return The hash of the blob.
      * @throws IOException If encountering an error while reading the content.
      */
-    String hashObject(InputStream s, long size) throws IOException;
+    byte[] hashBlob(InputStream s, long size) throws IOException;
 
     /**
      * Writes the given content to the database as a blob and returns its hash.
@@ -41,7 +41,7 @@ public interface ObjectDatabase {
      * @throws IOException If encountering an error while reading the content or
      *                     writing the blob.
      */
-    String writeObject(InputStream s, long size) throws IOException;
+    byte[] writeBlob(InputStream s, long size) throws IOException;
 
     /**
      * Lists the objects belonging to a tree.
@@ -51,7 +51,7 @@ public interface ObjectDatabase {
      * @throws GitException If the hash does not specify a tree.
      * @throws IOException  If encountering an error while reading any of the files.
      */
-    List<TreeObject> listTree(String hash) throws GitException, IOException;
+    List<TreeObject> listTree(byte[] hash) throws GitException, IOException;
 
-    String writeTree() throws GitException, IOException;
+    byte[] writeTree() throws GitException, IOException;
 }

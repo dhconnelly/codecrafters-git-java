@@ -1,7 +1,8 @@
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -9,6 +10,7 @@ import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -28,19 +30,20 @@ public class FsObjectDatabase implements ObjectDatabase {
         Files.createDirectories(root.resolve(".git/refs"));
         Path head = root.resolve(".git/HEAD");
         if (!Files.exists(head)) {
-            Files.writeString(head, "ref: refs/heads/main\n", StandardCharsets.UTF_8);
+            Files.writeString(head, "ref: refs/heads/main\n", UTF_8);
         }
         return new FsObjectDatabase(root);
     }
 
-    public Path pathFor(String sha) {
+    public Path pathFor(byte[] hash) {
+        var sha = hex(hash);
         var dir = sha.substring(0, 2);
         var path = sha.substring(2);
         return root.resolve(".git/objects").resolve(dir).resolve(path);
     }
 
     @Override
-    public ObjectType getType(String hash) throws IOException, GitException {
+    public ObjectType getType(byte[] hash) throws IOException, GitException {
         var deflated = Files.newInputStream(pathFor(hash));
         var inflated = new InflaterInputStream(deflated);
         String type = eatString(inflated, (byte) ' ').t.toString();
@@ -56,7 +59,7 @@ public class FsObjectDatabase implements ObjectDatabase {
         }
     }
 
-    private ObjectInputStream readObject(String hash) throws IOException, GitException {
+    private ObjectInputStream readObject(byte[] hash) throws IOException, GitException {
         var deflated = Files.newInputStream(pathFor(hash));
         var inflated = new InflaterInputStream(deflated);
         String type = eatString(inflated, (byte) ' ').t.toString();
@@ -65,25 +68,7 @@ public class FsObjectDatabase implements ObjectDatabase {
     }
 
     @Override
-    public List<TreeObject> listTree(String hash) throws GitException, IOException {
-        var obj = readObject(hash);
-        InputStream stream = obj.as(ObjectType.Tree);
-        var elems = new ArrayList<TreeObject>();
-        for (int read = 0; read < obj.size;) {
-            var mode = eatInt(stream, (byte) ' ');
-            read += mode.size;
-            var name = eatString(stream, (byte) 0);
-            read += name.size;
-            var objectHash = stream.readNBytes(20);
-            var objectType = getType(hex(objectHash));
-            read += 20;
-            elems.add(new TreeObject(name.t.toString(), objectType, mode.t, objectHash));
-        }
-        return elems;
-    }
-
-    @Override
-    public InputStream readBlob(String sha) throws GitException, IOException {
+    public InputStream readBlob(byte[] sha) throws GitException, IOException {
         return readObject(sha).as(ObjectType.Blob);
     }
 
@@ -96,38 +81,50 @@ public class FsObjectDatabase implements ObjectDatabase {
 
     private static final String SHA_1 = "SHA-1";
 
-    private String hashObject(OutputStream out, InputStream in, long size) throws IOException {
+    @FunctionalInterface
+    private interface CheckedStreamConsumer {
+        void accept(OutputStream out) throws IOException;
+    }
+
+    private byte[] hashStream(OutputStream out, CheckedStreamConsumer f) throws IOException {
         MessageDigest digest;
         try {
             digest = MessageDigest.getInstance("SHA-1");
         } catch (NoSuchAlgorithmException e) {
             throw new AssertionError("can't find algorithm: %s".formatted(SHA_1));
         }
-
         var digester = new DigestOutputStream(out, digest);
-        digester.write("blob %d".formatted(size).getBytes(StandardCharsets.UTF_8));
-        digester.write((byte) 0);
-        in.transferTo(digester);
-
-        var hash = hex(digest.digest());
-        return hash;
+        f.accept(digester);
+        return digest.digest();
     }
 
-    @Override
-    public String hashObject(InputStream s, long size) throws IOException {
-        return hashObject(OutputStream.nullOutputStream(), s, size);
-    }
-
-    @Override
-    public String writeObject(InputStream s, long size) throws IOException {
+    private byte[] writeObject(CheckedStreamConsumer f) throws IOException {
         Path temp = Files.createTempFile("git", "obj");
         try (var out = new DeflaterOutputStream(Files.newOutputStream(temp))) {
-            String hash = hashObject(out, s, size);
+            byte[] hash = hashStream(out, f);
             Path target = pathFor(hash);
             Files.createDirectories(target.getParent());
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
             return hash;
         }
+    }
+
+    private byte[] hashAndWriteBlob(OutputStream out, InputStream in, long size) throws IOException {
+        return hashStream(out, digester -> {
+            digester.write("blob %d".formatted(size).getBytes(UTF_8));
+            digester.write((byte) 0);
+            in.transferTo(digester);
+        });
+    }
+
+    @Override
+    public byte[] hashBlob(InputStream s, long size) throws IOException {
+        return hashAndWriteBlob(OutputStream.nullOutputStream(), s, size);
+    }
+
+    @Override
+    public byte[] writeBlob(InputStream s, long size) throws IOException {
+        return writeObject(out -> hashAndWriteBlob(out, s, size));
     }
 
     private static Sized<Integer> eatInt(InputStream is, byte until) throws GitException, IOException {
@@ -136,6 +133,24 @@ public class FsObjectDatabase implements ObjectDatabase {
 
     private static Sized<StringBuilder> eatString(InputStream is, byte until) throws GitException, IOException {
         return eat(is, until, new StringBuilder(), (s, b) -> s.append((char) b.byteValue()), b -> b <= 127);
+    }
+
+    @Override
+    public List<TreeObject> listTree(byte[] hash) throws GitException, IOException {
+        var obj = readObject(hash);
+        InputStream stream = obj.as(ObjectType.Tree);
+        var elems = new ArrayList<TreeObject>();
+        for (int read = 0; read < obj.size;) {
+            var mode = eatInt(stream, (byte) ' ');
+            read += mode.size;
+            var name = eatString(stream, (byte) 0);
+            read += name.size;
+            var objectHash = stream.readNBytes(20);
+            var objectType = getType(objectHash);
+            read += 20;
+            elems.add(new TreeObject(name.t.toString(), objectType, mode.t, objectHash));
+        }
+        return elems;
     }
 
     private record Sized<T>(T t, int size) {
@@ -164,19 +179,45 @@ public class FsObjectDatabase implements ObjectDatabase {
         return new Sized<T>(acc, n);
     }
 
-    private String writeTree(Path base) throws GitException, IOException {
-        // we need to recursively create all subtrees, so we use |list| instead
-        // of |walk| here.
-        Files.list(base).forEach(path -> {
+    private byte[] writeTree(Path base) throws GitException, IOException {
+        var objects = new ArrayList<TreeObject>();
+        long treeSize = 0;
+        for (var path : Files.list(base).toList()) {
+            if (path.equals(root.resolve(".git"))) {
+                continue;
+            }
             if (Files.isDirectory(path)) {
+                var hash = writeTree(path);
+                objects.add(new TreeObject(
+                        base.relativize(path).toString(),
+                        getType(hash), 40000, hash));
+            } else {
+                var hash = writeBlob(Files.newInputStream(path), Files.size(path));
+                objects.add(new TreeObject(
+                        base.relativize(path).toString(),
+                        getType(hash), 100644, hash));
+            }
+            treeSize += Long.toString(objects.getLast().mode()).length();
+            treeSize += 1; // space
+            treeSize += objects.getLast().name().length();
+            treeSize += 1; // nul
+            treeSize += 20; // sha
+        }
+        objects.sort(Comparator.comparing(TreeObject::name));
+        final long size = treeSize;
+        return writeObject(out -> {
+            out.write("tree %d".formatted(size).getBytes(UTF_8));
+            out.write((byte) 0);
+            for (var object : objects) {
+                out.write("%d %s".formatted(object.mode(), object.name()).getBytes(UTF_8));
+                out.write((byte) 0);
+                out.write(object.hash());
             }
         });
-        return null;
     }
 
     @Override
-    public String writeTree() throws GitException, IOException {
-        writeTree(root);
-        return null;
+    public byte[] writeTree() throws GitException, IOException {
+        return writeTree(root);
     }
 }
