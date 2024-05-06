@@ -220,4 +220,11 @@ public class FsObjectDatabase implements ObjectDatabase {
     public byte[] writeTree() throws GitException, IOException {
         return writeTree(root);
     }
+
+    @Override
+    public byte[] commitTree(byte[] treeHash, byte[] parentCommitHash, String message)
+            throws GitException, IOException {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'commitTree'");
+    }
 }

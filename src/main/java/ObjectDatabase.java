@@ -62,4 +62,17 @@ public interface ObjectDatabase {
      * @throws IOException  If an error is encountered while writing the tree.
      */
     byte[] writeTree() throws GitException, IOException;
+
+    /**
+     * Creates a commit from the given tree, parent commit, and commit message.
+     * 
+     * @param treeHash         The tree to associate with the commit.
+     * @param parentCommitHash The parent of the commit.
+     * @param message          The message for the commit.
+     * @return The hash of the commit object.
+     * @throws GitException If any objects have unexpected type or are invalid.
+     * @throws IOException  If any errors are encountered while reading or writing
+     *                      objects.
+     */
+    byte[] commitTree(byte[] treeHash, byte[] parentCommitHash, String message) throws GitException, IOException;
 }

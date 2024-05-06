@@ -102,11 +102,22 @@ public class Main {
         }
     }
 
+    private static void commitTree(List<String> opts) {
+        if (opts.size() != 5) {
+            die("usage: git commit-tree <tree_sha> -p <parent_commit_sha> -m <message>");
+        }
+        try {
+            var git = FsObjectDatabase.init(Path.of("."));
+            System.out.println(hex(git.commitTree(fromHex(opts.get(0)), fromHex(opts.get(2)), opts.get(4))));
+        } catch (Exception e) {
+            die(e);
+        }
+    }
+
     public static void main(String[] args) {
         if (args.length == 0) {
             die("usage: git <command>");
         }
-        // TODO: command parsing
         final String command = args[0];
         final List<String> opts = Arrays.asList(args).subList(1, args.length);
         switch (command) {
@@ -115,6 +126,7 @@ public class Main {
             case "hash-object" -> hashObject(opts);
             case "ls-tree" -> lsTree(opts);
             case "write-tree" -> writeTree(opts);
+            case "commit-tree" -> commitTree(opts);
             default -> System.out.println("Unknown command: " + command);
         }
     }
