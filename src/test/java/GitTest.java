@@ -52,9 +52,9 @@ public class GitTest {
             0xcf, 0x2f, 0xca, 0x49, 0xe1, 0x02, 0x00, 0x7b, 0x36, 0x08, 0xf7
     });
 
-    // git update-index --add --cacheinfo 100644 \
+    // git update-index --add --cacheinfo 100644
     // 4b5fa63702dd96796042e92787f464e28f09f17d hello.txt
-    // git update-index --add --cacheinfo 100644 \
+    // git update-index --add --cacheinfo 100644
     // bbd698f6f2eb4009d9950c3a0317c536b504c842 hello2.txt
     // git write-tree
     // xxd -i .git/objects/58/eed98b03a8df0e87c6b023fd8e17a939dbaa4c
@@ -72,6 +72,13 @@ public class GitTest {
             0x22, 0x2b, 0x32, 0x02, 0xab, 0xda, 0x7d, 0x6d, 0xc6, 0xb7, 0x4f, 0xaf,
             0x1d, 0x38, 0x6f, 0x4e, 0xe5, 0xb1, 0x62, 0x16, 0x3f, 0x6a, 0xb6, 0x95,
             0xe5, 0x84, 0x13, 0x00, 0xe0, 0x71, 0x20, 0x10
+    });
+
+    private static final List<byte[]> PARENT_COMMITS = List.of();
+    private static final String COMMIT_MESSAGE = "hello, git";
+    private static final byte[] COMMIT_HASH_BINARY = asBytes(new int[] {
+            0x1d, 0x81, 0x5a, 0xa4, 0x9e, 0x6a, 0xda, 0x37, 0x83, 0x3a, 0xe1, 0x2d,
+            0x05, 0xed, 0xac, 0x74, 0x36, 0x51, 0x13, 0x21,
     });
 
     @Test
@@ -186,5 +193,20 @@ public class GitTest {
 
         // THEN
         assertArrayEquals(TREE_HASH_BINARY, hash);
+    }
+
+    @Test
+    public void testCommitTree() throws IOException, GitException {
+        // GIVEN
+        var git = FsObjectDatabase.init(Files.createTempDirectory("commit"));
+        createFile(git.pathFor(CONTENT_HASH_BINARY), CONTENT_DATA);
+        createFile(git.pathFor(CONTENT2_HASH_BINARY), CONTENT2_DATA);
+        createFile(git.pathFor(TREE_HASH_BINARY), TREE_DATA);
+
+        // WHEN
+        var hash = git.commitTree(TREE_HASH_BINARY, PARENT_COMMITS, COMMIT_MESSAGE);
+
+        // THEN
+        assertArrayEquals(COMMIT_HASH_BINARY, hash);
     }
 }

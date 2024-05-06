@@ -108,7 +108,7 @@ public class Main {
         }
         try {
             var git = FsObjectDatabase.init(Path.of("."));
-            System.out.println(hex(git.commitTree(fromHex(opts.get(0)), fromHex(opts.get(2)), opts.get(4))));
+            System.out.println(hex(git.commitTree(fromHex(opts.get(0)), List.of(fromHex(opts.get(2))), opts.get(4))));
         } catch (Exception e) {
             die(e);
         }

@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -224,13 +223,15 @@ public class FsObjectDatabase implements ObjectDatabase {
     }
 
     @Override
-    public byte[] commitTree(byte[] treeHash, byte[] parentCommitHash, String message)
+    public byte[] commitTree(byte[] treeHash, List<byte[]> parentCommitHashes, String message)
             throws GitException, IOException {
         var buf = new ByteArrayOutputStream();
         buf.write("tree ".getBytes(UTF_8));
         buf.write(hex(treeHash).getBytes(UTF_8));
-        buf.write("\nparent ".getBytes(UTF_8));
-        buf.write(hex(parentCommitHash).getBytes(UTF_8));
+        for (byte[] hash : parentCommitHashes) {
+            buf.write("\nparent ".getBytes(UTF_8));
+            buf.write(hex(hash).getBytes(UTF_8));
+        }
         buf.write("\nauthor daniel connelly <dhconnelly@gmail.com> 0 +0000".getBytes(UTF_8));
         buf.write("\ncommitter daniel connelly <dhconnelly@gmail.com> 0 +0000".getBytes(UTF_8));
         buf.write("\n\n%s\n".formatted(message).getBytes(UTF_8));
