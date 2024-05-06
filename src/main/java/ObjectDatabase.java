@@ -43,5 +43,13 @@ public interface ObjectDatabase {
      */
     String writeObject(InputStream s, long size) throws IOException;
 
+    /**
+     * Lists the objects belonging to a tree.
+     *
+     * @param hash The hash of the tree.
+     * @return The objects in the tree.
+     * @throws GitException If the hash does not specify a tree.
+     * @throws IOException  If encountering an error while reading any of the files.
+     */
     List<TreeObject> listTree(String hash) throws GitException, IOException;
 }
