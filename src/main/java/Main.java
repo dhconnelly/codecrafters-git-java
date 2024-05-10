@@ -1,3 +1,4 @@
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -114,6 +115,24 @@ public class Main {
         }
     }
 
+    private static void clone(List<String> opts) {
+        if (opts.size() != 2) {
+            die("usage: git clone <remote_url> <target_dir>");
+        }
+        String repositoryURL = opts.get(0);
+        String targetDir = opts.get(1);
+        try {
+            var url = new URI(repositoryURL);
+            var client = new GitSmartClient(url.getHost(), url.getPath());
+            var refs = client.listRefs();
+            for (byte[] ref : refs) {
+                System.out.println(hex(ref));
+            }
+        } catch (Exception e) {
+            die(e);
+        }
+    }
+
     public static void main(String[] args) {
         if (args.length == 0) {
             die("usage: git <command>");
@@ -127,6 +146,7 @@ public class Main {
             case "ls-tree" -> lsTree(opts);
             case "write-tree" -> writeTree(opts);
             case "commit-tree" -> commitTree(opts);
+            case "clone" -> clone(opts);
             default -> System.out.println("Unknown command: " + command);
         }
     }
