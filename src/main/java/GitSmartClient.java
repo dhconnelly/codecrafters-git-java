@@ -11,6 +11,8 @@ import java.util.List;
 import javax.net.ssl.SSLSocketFactory;
 
 public class GitSmartClient {
+    private static final String CONTENT_TYPE = "application/x-git-upload-pack-advertisement";
+
     private final String host;
     private final String repoPath;
 
@@ -62,15 +64,32 @@ public class GitSmartClient {
         }
     }
 
-    public List<byte[]> listRefs() throws IOException {
+    private void validateStatus(String statusLine) throws GitRemoteException {
+        var toks = statusLine.split(" ");
+        int code = Integer.parseInt(toks[1]);
+        if (code != 200) {
+            throw new GitRemoteException("expected http status 200, got %d".formatted(code));
+        }
+    }
+
+    private void validateHeader(String headerLine) throws GitRemoteException {
+        var toks = headerLine.split(": ");
+        String name = toks[0], value = toks[1];
+        if (name.equals("Content-Type") && !value.equals(CONTENT_TYPE)) {
+            throw new GitRemoteException("expected content type %s, got %s".formatted(CONTENT_TYPE, value));
+        }
+    }
+
+    public List<byte[]> listRefs() throws IOException, GitRemoteException {
         try (var sock = new GitSocket()) {
             System.out.println("connected.");
             sock.sendLine("GET %s.git/info/refs?service=git-upload-pack HTTP/1.0".formatted(repoPath));
             sock.sendLine("Host: %s".formatted(host));
             sock.sendLine("Git-Protocol: version=2");
             sock.sendLine();
-            for (String line; !(line = sock.readLine()).isEmpty();) {
-                System.out.println(line);
+            validateStatus(sock.readLine());
+            for (String header; !(header = sock.readLine()).isEmpty();) {
+                validateHeader(header);
             }
         }
         return List.of();
